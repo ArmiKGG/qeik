@@ -5,6 +5,8 @@ import fitz
 from pyzbar.pyzbar import decode
 import requests
 from fake_headers import Headers
+import base64
+import numpy as np
 
 header = Headers(headers=True).generate()
 
@@ -15,7 +17,7 @@ UPLOAD_FOLDER = './tmp'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.secret_key = 'super secret key'
 
-extensons_img = ['.jpg', '.png']
+extensons_img = ['.jpg', '.png', '.jpeg']
 
 if not os.path.exists('./tmp'):
     os.makedirs('./tmp')
@@ -125,7 +127,7 @@ def home_qr():
     return render_template('index.html')
 
 
-@app.route('/api', methods=['GET', 'POST'])
+@app.route('/api/v1/ui', methods=['GET', 'POST'])
 def upload_file():
     if request.method == 'POST':
         f = request.files['file']
@@ -135,6 +137,30 @@ def upload_file():
             if f.filename in filename:
                 os.remove(f"./tmp/{filename}")
         return jsonify(data)
+
+
+@app.route('/api/v1/base64', methods=['GET', 'POST'])
+def upload_base():
+    if request.method == 'POST':
+        tmpname = np.random.randint(1, 1000000)
+        f = request.json.get('base64')
+        ext = None
+        if f[0] == 'i':
+            ext = 'png'
+        if f[0] == '/':
+            ext = 'jpg'
+        if f[0] == 'J':
+            ext = 'pdf'
+        if ext:
+            filename_tmp = f"{tmpname}.{ext}"
+            with open(f"./tmp/{filename_tmp}", "wb") as fh:
+                fh.write(base64.b64decode(f))
+                fh.close()
+            data = get_qr(f"./tmp/{filename_tmp}")
+            for filename_p in os.listdir('./tmp'):
+                if filename_tmp in filename_p:
+                    os.remove(f"./tmp/{filename_p}")
+            return jsonify(data)
 
 
 if __name__ == '__main__':
