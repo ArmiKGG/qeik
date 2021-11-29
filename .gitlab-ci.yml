@@ -1,0 +1,11 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  NAME: qr-backend
+
+include:
+  - project: udb/kube-env
+    ref: master
+    file: /gitlab-ci-templates/.gitlab-ci-deploy.yml

@@ -1,0 +1,27 @@
+image:
+  repository: git.expoforum.ru:5050/udb/qr-backend
+  pullPolicy: Always
+  tag: "dev"
+
+nameOverride: "qr-backend"
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+  hosts:
+    - host: udb.expoforum.ru
+      paths:
+        - path: /qr
+          pathType: Prefix
+  tls:
+    - hosts:
+        - udb.expoforum.ru
+      secretName: wildcard-tls
+
+healthProbePath: /health
+
