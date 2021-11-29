@@ -14,4 +14,4 @@ RUN pip3 install -r requirements.txt
 COPY . .
 
 EXPOSE 80
-CMD ["gunicorn", "--workers", "5", "--max-requests", "300", "--bind", "0.0.0.0:$PORT", "--preload", "--log-level", "debug", "wsgi:app"]
+CMD ["gunicorn", "--workers", "5", "--max-requests", "300", "--bind", "0.0.0.0:${PORT##\\}", "--preload", "--log-level", "debug", "wsgi:app"]
