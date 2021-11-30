@@ -50,7 +50,7 @@ def convert_pdf_to_images(pdf_path):
         output = fr"./tmp/{file_name} - {i}.png"
         pix.save(output)
         data = proces_path(output)
-        if data:
+        if data['decoded_url']:
             api_gos = 'https://www.gosuslugi.ru/api/covid-cert/v3/cert/check/' + data['decoded_url'].split('/')[-1]
             is_valid = requests.get(url=api_gos, headers=header, verify=False).json()
             data['status'] = is_valid['items'][0]['status']
@@ -58,7 +58,7 @@ def convert_pdf_to_images(pdf_path):
             return data
         else:
             data = second_method(output)
-            if data:
+            if data['decoded_url']:
                 try:
                     api_gos = 'https://www.gosuslugi.ru/api/covid-cert/v3/cert/check/' + data['decoded_url'].split('/')[-1]
                     is_valid = requests.get(url=api_gos, headers=header, verify=False).json()
@@ -79,7 +79,7 @@ def get_qr(path_to_file):
         if_pdf = True
     if is_img:
         data = proces_path(path_to_file)
-        if data:
+        if data['decoded_url']:
             try:
                 api_gos = 'https://www.gosuslugi.ru/api/covid-cert/v3/cert/check/' + data['decoded_url'].split('/')[-1]
                 is_valid = requests.get(url=api_gos, headers=header, verify=False).json()
@@ -90,7 +90,7 @@ def get_qr(path_to_file):
                 return data
         else:
             data = second_method(path_to_file)
-            if data:
+            if data['decoded_url']:
                 try:
                     api_gos = 'https://www.gosuslugi.ru/api/covid-cert/v3/cert/check/' + data['decoded_url'].split('/')[-1]
                     is_valid = requests.get(url=api_gos, headers=header, verify=False).json()
