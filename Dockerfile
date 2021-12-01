@@ -1,15 +1,20 @@
 # set base image (host OS)
 FROM python:3.7
 
-# set the working directory in the container
+RUN apt-get clean \
+    && apt-get -y update
+
+RUN apt-get -y install \
+    poppler-utils\
+    libzbar-dev \
+    libzbar0
+
 WORKDIR /app
 
 # copy the dependencies file to the working directory
 COPY requirements.txt .
 
-# install dependencies
-RUN apt-get update
-RUN apt-get install -y libzbar0
+
 RUN pip3 install -r requirements.txt
 COPY . .
 
