@@ -1,8 +1,9 @@
 import os
-from flask import Flask, jsonify, make_response, render_template, request, flash, redirect, url_for
+from flask import Flask, jsonify, make_response, render_template, request
 import cv2
 import fitz
 from pyzbar.pyzbar import decode
+from pdf2image import convert_from_path
 import requests
 from fake_headers import Headers
 import base64
@@ -24,10 +25,26 @@ if not os.path.exists('./tmp'):
 
 
 def second_method(img_path):
-    data_src = decode(cv2.imread(img_path))
-    link = str(data_src[0][0]).replace("b'", '').replace("'", '')
-    return {'decoded_url': link}
+    try:
+        data_src = decode(cv2.imread(img_path))
+        link = str(data_src[0][0]).replace("b'", '').replace("'", '')
+        return {'decoded_url': link}
 
+    except Exception as e:
+        return {'error': e,
+                'decoded_url': ''}
+
+
+def third_method(path_to_pdf):
+    try:
+        image = convert_from_path(path_to_pdf)[0]
+        data_src = decode(image)
+        link = str(data_src[0][0]).replace("b'", '').replace("'", '')
+        return {'decoded_url': link}
+
+    except Exception as e:
+        return {'error': e,
+                'decoded_url': ''}
 
 def proces_path(path):
     try:
@@ -36,72 +53,109 @@ def proces_path(path):
         data, points, _ = decoder.detectAndDecode(img)
         if points is not None:
             return {'decoded_url': data}
+        else:
+            return {'decoded_url': ''}
     except Exception as e:
-        return {'error': e}
+        return {'error': e,
+                'decoded_url': ''}
+
+
+def pdf_process(output):
+    data = proces_path(output)
+    if data['decoded_url']:
+        api_gos = 'https://www.gosuslugi.ru/api/covid-cert/v3/cert/check/' + data['decoded_url'].split('/')[-1]
+        is_valid = requests.get(url=api_gos, headers=header, verify=False)
+        if is_valid.status_code == 200:
+            is_valid = is_valid.json()
+            data['status'] = is_valid['items'][0]['status']
+            data['expires_at'] = is_valid['items'][0]['expiredAt']
+            return data
+        return data
+    else:
+        data = second_method(output)
+        if data['decoded_url']:
+            api_gos = 'https://www.gosuslugi.ru/api/covid-cert/v3/cert/check/' + data['decoded_url'].split('/')[-1]
+            is_valid = requests.get(url=api_gos, headers=header, verify=False)
+            if is_valid.status_code == 200:
+                is_valid = is_valid.json()
+                data['status'] = is_valid['items'][0]['status']
+                data['expires_at'] = is_valid['items'][0]['expiredAt']
+                return data
+        else:
+            data = third_method(output.split(' -')[0])
+            if data['decoded_url']:
+                api_gos = 'https://www.gosuslugi.ru/api/covid-cert/v3/cert/check/' + data['decoded_url'].split('/')[-1]
+                is_valid = requests.get(url=api_gos, headers=header, verify=False)
+                if is_valid.status_code == 200:
+                    is_valid = is_valid.json()
+                    data['status'] = is_valid['items'][0]['status']
+                    data['expires_at'] = is_valid['items'][0]['expiredAt']
+                    return data
+                return data
+    return {'error': 'unreadable pdf', 'decoded_url': ''}
 
 
 def convert_pdf_to_images(pdf_path):
     file_name = pdf_path.split('/')[-1]
     pdffile = pdf_path
     doc = fitz.open(pdffile)
+    rg = 0
+    if doc.page_count > 1:
+        rg = doc.page_count - 1
+    if rg == 0:
+        page = doc.load_page(rg)  # number of page
+        pix = page.get_pixmap()
+        output = fr"./tmp/{file_name} - {rg}.png"
+        pix.save(output)
+        data = pdf_process(output)
+        return data
     for i in range(doc.page_count - 1):
         page = doc.load_page(i)  # number of page
         pix = page.get_pixmap()
         output = fr"./tmp/{file_name} - {i}.png"
         pix.save(output)
-        data = proces_path(output)
-        if data['decoded_url']:
-            api_gos = 'https://www.gosuslugi.ru/api/covid-cert/v3/cert/check/' + data['decoded_url'].split('/')[-1]
-            is_valid = requests.get(url=api_gos, headers=header, verify=False).json()
-            data['status'] = is_valid['items'][0]['status']
-            data['expires_at'] = is_valid['items'][0]['expiredAt']
-            return data
-        else:
-            data = second_method(output)
-            if data['decoded_url']:
-                try:
-                    api_gos = 'https://www.gosuslugi.ru/api/covid-cert/v3/cert/check/' + data['decoded_url'].split('/')[-1]
-                    is_valid = requests.get(url=api_gos, headers=header, verify=False).json()
-                    data['status'] = is_valid[0]['items']['status']
-                    data['expires_at'] = is_valid['items'][0]['expiredAt']
-                    return data
-                except:
-                    return data
-        return {'error': 'unreadable pdf'}
+        data = pdf_process(output)
+        return data
 
 
 def get_qr(path_to_file):
-    is_img = False
-    for ext in extensons_img:
-        if path_to_file.endswith(ext):
-            is_img = True
-    else:
-        if_pdf = True
-    if is_img:
-        data = proces_path(path_to_file)
-        if data['decoded_url']:
-            try:
-                api_gos = 'https://www.gosuslugi.ru/api/covid-cert/v3/cert/check/' + data['decoded_url'].split('/')[-1]
-                is_valid = requests.get(url=api_gos, headers=header, verify=False).json()
-                data['status'] = is_valid['items'][0]['status']
-                data['expires_at'] = is_valid['items'][0]['expiredAt']
-                return data
-            except:
-                return data
+    try:
+        is_img = False
+        for ext in extensons_img:
+            if path_to_file.endswith(ext):
+                is_img = True
         else:
-            data = second_method(path_to_file)
+            if_pdf = True
+        if is_img:
+            data = proces_path(path_to_file)
             if data['decoded_url']:
-                try:
-                    api_gos = 'https://www.gosuslugi.ru/api/covid-cert/v3/cert/check/' + data['decoded_url'].split('/')[-1]
-                    is_valid = requests.get(url=api_gos, headers=header, verify=False).json()
-                    data['status'] = is_valid[0]['status']
-                    data['expires_at'] = is_valid[0]['expiredAt']
+                api_gos = 'https://www.gosuslugi.ru/api/covid-cert/v3/cert/check/' + data['decoded_url'].split('/')[-1]
+                is_valid = requests.get(url=api_gos, headers=header, verify=False)
+                if is_valid.status_code == 200:
+                    is_valid = is_valid.json()
+                    data['status'] = is_valid['items'][0]['status']
+                    data['expires_at'] = is_valid['items'][0]['expiredAt']
                     return data
-                except:
+                return data
+            else:
+                data = second_method(path_to_file)
+                if data['decoded_url']:
+                    api_gos = 'https://www.gosuslugi.ru/api/covid-cert/v3/cert/check/' + data['decoded_url'].split('/')[
+                        -1]
+                    is_valid = requests.get(url=api_gos, headers=header, verify=False)
+                    if is_valid.status_code == 200:
+                        is_valid = is_valid.json()
+                        data['status'] = is_valid['items'][0]['status']
+                        data['expires_at'] = is_valid['items'][0]['expiredAt']
+                        return data
                     return data
-        return {'error': 'unreadable img'}
-    elif if_pdf:
-        return convert_pdf_to_images(path_to_file)
+            return {'error': 'unreadable img', 'decoded_url': ''}
+        elif if_pdf:
+            return convert_pdf_to_images(path_to_file)
+        else:
+            return {'error': 'unsupportable file', 'decoded_url': ''}
+    except Exception as e:
+        return {'error': e, 'decoded_url': ''}
 
 
 def _build_cors_preflight_response():
@@ -131,11 +185,14 @@ def home_qr():
 def upload_file():
     if request.method == 'POST':
         f = request.files['file']
-        f.save(f"./tmp/{f.filename}")
-        data = get_qr(f"./tmp/{f.filename}")
+        f.save(fr"./tmp/{f.filename}")
+        data = get_qr(fr"./tmp/{f.filename}")
         for filename in os.listdir('./tmp'):
             if f.filename in filename:
-                os.remove(f"./tmp/{filename}")
+                try:
+                    os.remove(fr"./tmp/{filename}")
+                except Exception as e:
+                    print(e)
         return jsonify(data)
 
 
@@ -153,13 +210,16 @@ def upload_base():
             ext = 'pdf'
         if ext:
             filename_tmp = f"{tmpname}.{ext}"
-            with open(f"./tmp/{filename_tmp}", "wb") as fh:
+            with open(fr"./tmp/{filename_tmp}", "wb") as fh:
                 fh.write(base64.b64decode(f))
                 fh.close()
-            data = get_qr(f"./tmp/{filename_tmp}")
+            data = get_qr(fr"./tmp/{filename_tmp}")
             for filename_p in os.listdir('./tmp'):
                 if filename_tmp in filename_p:
-                    os.remove(f"./tmp/{filename_p}")
+                    try:
+                        os.remove(fr"./tmp/{filename_tmp}")
+                    except Exception as e:
+                        print(e)
             return jsonify(data)
 
 
