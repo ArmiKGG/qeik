@@ -110,7 +110,7 @@ def home_qr():
     return render_template('index.html')
 
 
-@app.route('/qr/api/v1/ui', methods=['GET', 'POST'])
+@app.route('/api/v1/ui', methods=['GET', 'POST'])
 def upload_file():
     if request.method == 'POST':
         f = request.files['file']
