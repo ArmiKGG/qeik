@@ -2,7 +2,7 @@
 ## Support only, .jpg, .jpeg, .png, .pdf
 
 # use script from bottom and make requests to  qr-code checker API
-
+# `/QRFile` is a folder with qe-codes* 
 ```python
 import requests
 import os
