@@ -50,7 +50,7 @@ def second_image_method(path: str) -> dict:
 
 def pdf_method(path_to_pdf: str) -> dict:
     try:
-        image = convert_from_path(path_to_pdf, poppler_path=r'C:\Users\arman\Desktop\poppler-0.67.0\bin')[0]
+        image = convert_from_path(path_to_pdf)[0]
         data_src = decode(image)
         link = str(data_src[0][0]).replace("b'", '').replace("'", '')
         return {'decoded_url': link}
