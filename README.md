@@ -13,7 +13,7 @@ import logging
 
 logging.basicConfig(level=logging.INFO, filename="logfile.log", filemode="a+", format="%(asctime)-15s %(levelname)-8s %(message)s")
 
-for filename_p in os.listdir('./QRFile/'):
+for filename_p in os.listdir('./QRfile/'):
     if not filename_p.endswith('.txt'):
         try:
             with open(f"./QRfile/{filename_p}", "rb") as image_file:
